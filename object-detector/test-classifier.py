@@ -1,7 +1,8 @@
 # Import the required modules
 from skimage.transform import pyramid_gaussian
-from skimage.io import imread
+from skimage.io import imread, imshow
 from skimage.feature import hog
+from skimage import color
 from sklearn.externals import joblib
 import cv2
 import argparse as ap
@@ -40,9 +41,9 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
 
     # Read the image
-    im = imread(args["image"], as_grey=False)
-    min_wdw_sz = (100, 40)
-    step_size = (10, 10)
+    # args = {"image":"/Users/nn31/Dropbox/41-data/mouse_16.5_20x_acinarTubule/2015-04-029_20X_C57Bl6_E16.5_LMM.14.24.4.46_SOX9_SFTPC_ACTA2_001.tif", "downscale":1.25, "visualize": True}
+    im_orig = imread(args["image"], as_grey=False)
+    im = color.rgb2gray(im_orig)
     downscale = args['downscale']
     visualize_det = args['visualize']
 
@@ -54,6 +55,7 @@ if __name__ == "__main__":
     # The current scale of the image
     scale = 0
     # Downscale the image and iterate
+    # im_scaled = pyramid_gaussian(im, downscale=downscale).next()
     for im_scaled in pyramid_gaussian(im, downscale=downscale):
         # This list contains detections at the current scale
         cd = []
@@ -61,11 +63,13 @@ if __name__ == "__main__":
         # the width or height of the window, then end the iterations.
         if im_scaled.shape[0] < min_wdw_sz[1] or im_scaled.shape[1] < min_wdw_sz[0]:
             break
+        # (x, y, im_window) = sliding_window(im_scaled, min_wdw_sz, step_size).next()
         for (x, y, im_window) in sliding_window(im_scaled, min_wdw_sz, step_size):
             if im_window.shape[0] != min_wdw_sz[1] or im_window.shape[1] != min_wdw_sz[0]:
                 continue
             # Calculate the HOG features
             fd = hog(im_window, orientations, pixels_per_cell, cells_per_block, visualize, normalize)
+            fd = fd.reshape(1,-1)
             pred = clf.predict(fd)
             if pred == 1:
                 print  "Detection:: Location -> ({}, {})".format(x, y)
@@ -77,20 +81,21 @@ if __name__ == "__main__":
             # If visualize is set to true, display the working
             # of the sliding window
             if visualize_det:
-                clone = im_scaled.copy()
+                clone = im_orig.copy()
+                clone = cv2.cvtColor(clone, cv2.COLOR_RGB2BGR)
                 for x1, y1, _, _, _  in cd:
                     # Draw the detections at this scale
                     cv2.rectangle(clone, (x1, y1), (x1 + im_window.shape[1], y1 +
-                        im_window.shape[0]), (0, 0, 0), thickness=2)
+                        im_window.shape[0]), (0, 255, 0), thickness=2)
                 cv2.rectangle(clone, (x, y), (x + im_window.shape[1], y +
-                    im_window.shape[0]), (255, 255, 255), thickness=2)
+                    im_window.shape[0]), (0, 255, 0), thickness=2)
                 cv2.imshow("Sliding Window in Progress", clone)
                 cv2.waitKey(30)
         # Move the the next scale
         scale+=1
 
     # Display the results before performing NMS
-    clone = im.copy()
+    clone = im_orig.copy()
     for (x_tl, y_tl, _, w, h) in detections:
         # Draw the detections
         cv2.rectangle(im, (x_tl, y_tl), (x_tl+w, y_tl+h), (0, 0, 0), thickness=2)
@@ -105,4 +110,3 @@ if __name__ == "__main__":
         # Draw the detections
         cv2.rectangle(clone, (x_tl, y_tl), (x_tl+w,y_tl+h), (0, 0, 0), thickness=2)
     cv2.imshow("Final Detections after applying NMS", clone)
-    cv2.waitKey()

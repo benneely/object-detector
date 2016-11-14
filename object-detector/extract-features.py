@@ -1,7 +1,8 @@
 # Import the functions to calculate feature descriptors
 from skimage.feature import local_binary_pattern
 from skimage.feature import hog
-from skimage.io import imread
+from skimage.io import imread, imshow
+from skimage.transform import resize
 from sklearn.externals import joblib
 # To read file names
 import argparse as ap
@@ -36,19 +37,24 @@ if __name__ == "__main__":
     print "Calculating the descriptors for the positive samples and saving them"
     for im_path in glob.glob(os.path.join(pos_im_path, "*")):
         im = imread(im_path, as_grey=True)
+        #height_pxl = 150 #this is set in config.py
+        #width_pxl = 150 #this is set in config.py
+        im = resize(im,[min_wdw_sz[0],min_wdw_sz[1]])
         if des_type == "HOG":
             fd = hog(im, orientations, pixels_per_cell, cells_per_block, visualize, normalize)
-        fd_name = os.path.split(im_path)[1].split(".")[0] + ".feat"
+        fd_name = os.path.split(im_path)[1].split(".tif")[0] + ".feat"
         fd_path = os.path.join(pos_feat_ph, fd_name)
+        print("dumping now")
         joblib.dump(fd, fd_path)
     print "Positive features saved in {}".format(pos_feat_ph)
 
     print "Calculating the descriptors for the negative samples and saving them"
     for im_path in glob.glob(os.path.join(neg_im_path, "*")):
         im = imread(im_path, as_grey=True)
+        im = resize(im,[min_wdw_sz[0],min_wdw_sz[1]])
         if des_type == "HOG":
             fd = hog(im,  orientations, pixels_per_cell, cells_per_block, visualize, normalize)
-        fd_name = os.path.split(im_path)[1].split(".")[0] + ".feat"
+        fd_name = os.path.split(im_path)[1].split(".tif")[0] + ".feat"
         fd_path = os.path.join(neg_feat_ph, fd_name)
         joblib.dump(fd, fd_path)
     print "Negative features saved in {}".format(neg_feat_ph)
